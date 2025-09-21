@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+:root {
+  /* Light Theme Colors */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --primary: #4f46e5; /* indigo-600 */
+  --primary-foreground: #f8f9fa;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #1a1a2e;
+  --accent: #f59e0b; /* amber-500 */
+  --accent-foreground: #111827;
+  --muted: #f1f5f9;
+  --muted-foreground: #6b7280;
+  --border: #e5e7eb;
+  --input: #ffffff;
+  --ring: #4f46e5; /* indigo */
+  --card: #ffffff;
+  --card-foreground: #1a1a2e;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a2e;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #d97706; /* amber-700 */
+  --warning-foreground: #ffffff;
+  --info: #0ea5e9; /* sky-500 */
+  --info-foreground: #ffffff;
+  --sidebar: #16213e;
+  --sidebar-foreground: #f8f9fa;
+  --sidebar-accent: #4f46e5;
+
+  /* Metric colors (can be customized at runtime) */
+  --metric-total: var(--primary);
+  --metric-adults: var(--info);
+  --metric-children: #f59e0b;
+  --metric-firstTimers: var(--accent);
+  --metric-converts: var(--success);
+  --metric-tithers: #a78bfa;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+.dark {
+  /* Dark Theme Colors */
+  --background: #0b1220; /* deep navy */
+  --foreground: #e5e7eb; /* slate-200 */
+  --primary: #6366f1; /* indigo-500/600 */
+  --primary-foreground: #ffffff;
+  --secondary: #0f172a; /* slate-900 */
+  --secondary-foreground: #e5e7eb;
+  --accent: #f59e0b; /* amber-500 */
+  --accent-foreground: #111827;
+  --muted: #0f172a; /* panels */
+  --muted-foreground: #94a3b8; /* slate-400 */
+  --border: #1f2937; /* slate-800 */
+  --input: #0b1220;
+  --ring: #6366f1;
+  --card: #0f172a;
+  --card-foreground: #e5e7eb;
+  --popover: #0f172a;
+  --popover-foreground: #e5e7eb;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #b45309; /* amber-700 */
+  --warning-foreground: #ffffff;
+  --info: #38bdf8; /* sky-400 */
+  --info-foreground: #0f172a;
+  --sidebar: #0b1220;
+  --sidebar-foreground: #e5e7eb;
+  --sidebar-accent: #6366f1;
+
+  /* Metric colors (dark) */
+  --metric-total: var(--primary);
+  --metric-adults: var(--info);
+  --metric-children: #f59e0b;
+  --metric-firstTimers: var(--accent);
+  --metric-converts: var(--success);
+  --metric-tithers: #a78bfa;
+}
+
+html {
+  font-size: 19px;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-size: 1rem;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Smooth transitions and focus styles */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}

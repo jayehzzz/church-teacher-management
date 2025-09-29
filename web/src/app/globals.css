@@ -38,9 +38,8 @@
   --metric-firstTimers: var(--accent);
   --metric-converts: var(--success);
   --metric-tithers: #a78bfa;
-}
 
-@theme inline {
+  /* Additional color variables */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
@@ -69,6 +68,8 @@
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
+
+  /* Font variables */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

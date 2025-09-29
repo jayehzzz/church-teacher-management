@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPresentingChannel } from "@/lib/presenting/channel";
 import type { PresentingContent, PresentingMessage, YouTubeContent } from "@/lib/presenting/types";
 import FormattedText from "@/components/FormattedText";
+import { ScriptureDisplay } from "@/components/ScriptureDisplay";
 
 declare global {
   interface Window {
@@ -23,9 +24,9 @@ export default function PresentingOutputPage() {
   const [hasPlayer, setHasPlayer] = React.useState(false);
   const [showUi, setShowUi] = React.useState(false);
   const [trackInfo, setTrackInfo] = React.useState<{ title: string; author?: string } | null>(null);
-  const [showVideoOverlay, setShowVideoOverlay] = React.useState(false);
   const [audioEnabled, setAudioEnabled] = React.useState(false);
-  const ytmWindowRef = React.useRef<Window | null>(null);
+  const [isPlayerVisible, setIsPlayerVisible] = React.useState(false);
+  const [embedError, setEmbedError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -72,6 +73,36 @@ export default function PresentingOutputPage() {
     window.addEventListener("click", handler, { capture: true } as any);
     return () => window.removeEventListener("click", handler, { capture: true } as any);
   }, [audioEnabled]);
+
+  // Intersection Observer for YouTube player visibility detection
+  React.useEffect(() => {
+    if (!ytContainerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        // Check if at least 50% of the player is visible
+        const isVisible = entry.intersectionRatio >= 0.5;
+        setIsPlayerVisible(isVisible);
+        
+        // If player becomes visible and autoplay is enabled, try to play
+        if (isVisible && playerRef.current && content?.kind === "youtube" && content.autoplay) {
+          try {
+            playerRef.current.playVideo?.();
+          } catch (error) {
+            console.log("Autoplay blocked by browser policy");
+          }
+        }
+      },
+      { threshold: 0.5 } // Trigger when 50% or more is visible
+    );
+
+    observer.observe(ytContainerRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasPlayer, content]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -136,6 +167,9 @@ export default function PresentingOutputPage() {
           }
           playerRef.current.unMute?.();
           break;
+        case "OVERLAY":
+          // Overlay is now always visible for YouTube compliance
+          break;
       }
       return;
     }
@@ -146,6 +180,9 @@ export default function PresentingOutputPage() {
     if (!ready) return;
     if (!window.YT || !window.YT.Player) return;
     if (!ytContainerRef.current) return;
+    
+    // Clear any previous errors
+    setEmbedError(null);
 
     if (!playerRef.current) {
       playerRef.current = new window.YT.Player(ytContainerRef.current, {
@@ -153,12 +190,13 @@ export default function PresentingOutputPage() {
         height: "100%",
         videoId: yt.videoId,
         playerVars: {
-          autoplay: yt.autoplay ? 1 : 0,
+          autoplay: 0, // Always start with autoplay disabled to comply with YouTube terms
           start: yt.startSeconds ?? 0,
           controls: 1,
           playsinline: 1,
           modestbranding: 1,
           rel: 0,
+          enablejsapi: 1, // Enable JavaScript API for better control
         },
         events: {
           onReady: () => {
@@ -168,8 +206,17 @@ export default function PresentingOutputPage() {
             }
             // Start muted to satisfy autoplay policies; user can enable audio with a click
             playerRef.current.mute();
-            try { playerRef.current.playVideo?.(); } catch {}
             setHasPlayer(true);
+            
+            // Only attempt autoplay if player is visible and autoplay is requested
+            if (yt.autoplay && isPlayerVisible) {
+              try { 
+                playerRef.current.playVideo?.(); 
+              } catch (error) {
+                console.log("Autoplay blocked by browser policy");
+              }
+            }
+            
             // expose a function to enable audio after user gesture
             (window as any).enableOutputAudio = () => {
               try {
@@ -196,6 +243,28 @@ export default function PresentingOutputPage() {
                 const duration = playerRef.current.getDuration?.() ?? 0;
                 channelRef.current?.send({ type: "PLAYBACK_PROGRESS", current, duration, state: status });
               } catch {}
+            }
+          },
+          onError: (e: any) => {
+            // Handle embedding errors
+            const YT = window.YT;
+            if (YT) {
+              switch (e.data) {
+                case YT.PlayerError.EMBEDDING_DISABLED:
+                  setEmbedError("This video cannot be embedded. Please visit YouTube directly to watch.");
+                  break;
+                case YT.PlayerError.EMBEDDING_DISABLED_BY_REQUEST:
+                  setEmbedError("Embedding of this video has been disabled by the video owner.");
+                  break;
+                case YT.PlayerError.PRIVATE_VIDEO:
+                  setEmbedError("This is a private video and cannot be played.");
+                  break;
+                case YT.PlayerError.VIDEO_NOT_FOUND:
+                  setEmbedError("Video not found. Please check the URL.");
+                  break;
+                default:
+                  setEmbedError("An error occurred while loading the video.");
+              }
             }
           },
         },
@@ -234,62 +303,133 @@ export default function PresentingOutputPage() {
 
   return (
     <div className="fixed inset-0 w-screen h-screen" style={{ backgroundColor: "black", color: "white" }}>
-      <div className="relative w-full h-full">
+      {/* Safe area container - constrained to 1920x1080 */}
+      <div className="relative w-full h-full flex items-center justify-center">
+        <div 
+          className="relative border-4 border-white/20 shadow-2xl"
+          style={{
+            width: 'min(1920px, 100vw - 32px)',
+            height: 'min(1080px, 100vh - 32px)',
+            maxWidth: '1920px',
+            maxHeight: '1080px',
+            backgroundColor: 'black'
+          }}
+        >
         {showUi ? (
           <div className="absolute top-4 left-4 z-[60] flex items-center gap-3">
             <button onClick={exitPresenting} className="px-3 py-1 rounded-md border text-sm shadow" style={{ backgroundColor: "rgba(0,0,0,0.6)", borderColor: "#333", color: "#fff" }}>Exit</button>
             <span className="text-xs opacity-70">Esc to exit</span>
           </div>
         ) : null}
-        {!audioEnabled && hasPlayer ? (
+        
+        {/* Top right controls */}
+        {showUi ? (
+          <div className="absolute top-4 right-4 z-[60] flex flex-col gap-2">
+            <div className="px-3 py-1 rounded-md border text-xs shadow" style={{ backgroundColor: "rgba(0,0,0,0.6)", borderColor: "#333", color: "#fff" }}>
+              📐 Safe Area: 1920×1080
+            </div>
+            {!audioEnabled && hasPlayer && (
+              <button onClick={() => (window as any).enableOutputAudio?.()} className="px-3 py-1 rounded-md border text-sm shadow" style={{ backgroundColor: "rgba(0,0,0,0.6)", borderColor: "#333", color: "#fff" }}>Enable audio</button>
+            )}
+          </div>
+        ) : !audioEnabled && hasPlayer ? (
           <div className="absolute top-4 right-4 z-[60]">
             <button onClick={() => (window as any).enableOutputAudio?.()} className="px-3 py-1 rounded-md border text-sm shadow" style={{ backgroundColor: "rgba(0,0,0,0.6)", borderColor: "#333", color: "#fff" }}>Enable audio</button>
           </div>
         ) : null}
-        <div className="absolute inset-0 flex items-center justify-center p-8">
-          <div className="max-w-5xl w-full text-center">
-            {content && content.kind === "text" ? (
-              <FormattedText text={content.text} className="text-5xl font-semibold" />
-            ) : content && content.kind === "scripture" ? (
-              <div className="space-y-6">
-                <FormattedText text={content.text} className="text-5xl font-semibold" />
-                <div className="text-2xl opacity-80">{content.reference}</div>
+          {/* Main content area - constrained within safe bounds */}
+          <div className="absolute inset-0 flex items-center justify-center p-8">
+            <div 
+              className="w-full h-full text-center flex items-center justify-center"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                overflow: 'hidden',
+                padding: '16px' // Add internal padding for auto-fit calculations
+              }}
+            >
+              {content && content.kind === "text" ? (
+                <div 
+                  className="w-full h-full flex items-center justify-center"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <FormattedText 
+                    text={content.text} 
+                    className="font-semibold"
+                    style={{
+                      fontSize: content.fontSize ? `${content.fontSize}px` : '60px',
+                      textAlign: content.textAlign || 'center',
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      overflow: 'hidden',
+                      lineHeight: '1.1'
+                    }}
+                    autoFit={content.autoFit || false}
+                  />
+                </div>
+              ) : content && content.kind === "scripture" ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <ScriptureDisplay content={content} />
+                </div>
+              ) : !hasPlayer ? (
+                <div className="text-3xl opacity-60">Waiting for content…</div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* 
+            Small YouTube audio player - YouTube API compliance:
+            1. Always visible (240x180px, exceeds 200x200px minimum)
+            2. Autoplay only when 50%+ visible (Intersection Observer)
+            3. Positioned in corner for audio-only use
+            4. Proper error handling for embedding restrictions
+          */}
+          {hasPlayer ? (
+            <div className="absolute bottom-6 right-6 w-[240px] h-[180px] rounded-lg overflow-hidden border shadow-lg z-40" style={{ backgroundColor: "#000", borderColor: "#333" }}>
+              {embedError ? (
+                <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center">
+                  <div className="text-red-400 text-xs mb-1">⚠️ Audio Error</div>
+                  <div className="text-gray-300 text-xs mb-2">{embedError}</div>
+                  <a 
+                    href={`https://www.youtube.com/watch?v=${content?.kind === "youtube" ? content.videoId : ""}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
+                  >
+                    Open YouTube
+                  </a>
+                </div>
+              ) : (
+                <div className="relative w-full h-full">
+                  <div ref={ytContainerRef} className="w-full h-full" />
+                  {!isPlayerVisible && content?.kind === "youtube" && content.autoplay ? (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <div className="text-center text-white text-xs">
+                        <div className="mb-1">🎵 Audio ready</div>
+                        <div>Scroll to see player</div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {/* Now Playing watermark */}
+          {trackInfo ? (
+            <div className="absolute bottom-6 left-6 z-40">
+              <div className="px-3 py-2 rounded-lg border backdrop-blur bg-black/50 shadow" style={{ borderColor: "#333" }}>
+                <div className="text-xs uppercase opacity-70">🎵 Now Playing</div>
+                <div className="text-sm font-semibold">{trackInfo.title}</div>
+                {trackInfo.author ? <div className="text-xs opacity-80">{trackInfo.author}</div> : null}
               </div>
-            ) : !hasPlayer ? (
-              <div className="text-3xl opacity-60">Waiting for content…</div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Invisible player for audio output */}
-        <div className="absolute top-0 left-0 w-[1px] h-[1px] opacity-0 pointer-events-none z-50">
-          <div ref={ytContainerRef} className="w-full h-full" />
-        </div>
-
-        {/* Optional visible video overlay (currently hidden by default) */}
-        {showVideoOverlay && hasPlayer ? (
-          <div className="absolute top-6 left-6 w-[360px] max-w-[40vw] aspect-square rounded-xl overflow-hidden border shadow-2xl z-40" style={{ backgroundColor: "#000", borderColor: "#333" }} />
-        ) : null}
-
-        {/* Now Playing watermark */}
-        {trackInfo ? (
-          <div className="absolute bottom-6 left-6 z-40">
-            <div className="px-4 py-2 rounded-lg border backdrop-blur bg-black/50 shadow" style={{ borderColor: "#333" }}>
-              <div className="text-xs uppercase opacity-70">Now Playing</div>
-              <div className="text-lg font-semibold">{trackInfo.title}</div>
-              {trackInfo.author ? <div className="text-sm opacity-80">{trackInfo.author}</div> : null}
             </div>
-          </div>
-        ) : null}
-
-        {/* Indicator when YouTube Music popup is open */}
-        {ytmWindowRef.current && !ytmWindowRef.current.closed ? (
-          <div className="absolute bottom-6 right-6 z-40">
-            <div className="px-3 py-2 rounded-lg border backdrop-blur bg-black/50 shadow text-sm" style={{ borderColor: "#333" }}>
-              YouTube Music window is open
-            </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </div>
   );

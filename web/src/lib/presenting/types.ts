@@ -3,12 +3,32 @@
 export type TextContent = {
   kind: "text";
   text: string;
+  fontSize?: number;
+  textAlign?: 'left' | 'center' | 'right';
+  autoFit?: boolean;
 };
 
 export type ScriptureContent = {
   kind: "scripture";
   reference: string;
   text: string;
+  verses?: Array<{
+    book: string;
+    chapter: number;
+    verse: number;
+    text: string;
+  }>;
+  showVerseNumbers?: boolean;
+  showReference?: boolean;
+  // Presentation options inspired by FreeShow Scripture tab
+  versesOnIndividualLines?: boolean;
+  splitLongVerses?: boolean;
+  showVersion?: boolean;
+  versionLabel?: string; // e.g., "KJV", "NLT"
+  fontSize?: number;
+  textAlign?: 'left' | 'center' | 'right';
+  backgroundColor?: string;
+  textColor?: string;
 };
 
 export type YouTubeContent = {
